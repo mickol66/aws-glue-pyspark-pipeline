@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Data Engineer Portfolio: Infrastructure for S3 and AWS Glue ETL Pipeline.'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: chinook-data-pipeline
+    Description: 'A unique prefix used for naming the project resources.'
+
+Resources:
+  # 📥 1. S3 Landing Zone (Rådata i JSON/CSV format)
+  LandingZoneBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${ProjectName}-landing-zone-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 📊 2. S3 Analytics Zone (Transformerad och optimerad data i Parquet format)
+  AnalyticsZoneBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub '${ProjectName}-analytics-zone-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # 🔑 3. IAM-roll för AWS Glue (Ger Glue rättighet att läsa/skriva i dina buckets samt logga)
+  GlueServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub '${ProjectName}-glue-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ://amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole'
+      Policies:
+        - PolicyName: !Sub '${ProjectName}-s3-access-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Tillåt Glue att läsa från Landing Zone och skriptmappar
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt LandingZoneBucket.Arn
+                  - !Sub '${LandingZoneBucket.Arn}/*'
+              # Tillåt Glue att skriva (och läsa) i Analytics Zone
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt AnalyticsZoneBucket.Arn
+                  - !Sub '${AnalyticsZoneBucket.Arn}/*'
+
+  # ⚙️ 4. AWS Glue Job (Definitionen av ETL-motorn)
+  GlueEtlJob:
+    Type: 'AWS::Glue::Job'
+    Properties:
+      Name: !Sub '${ProjectName}-etl-job'
+      Role: !GetAtt GlueServiceRole.Arn
+      Description: 'ETL job that processes raw JSON data from landing zone to optimized Parquet in analytics zone.'
+      GlueVersion: '4.0' # Senaste stabila miljön med stöd för Python 3.10 / Spark 3.3
+      WorkerType: G.1X
+      NumberOfWorkers: 2 # Håller kostnaden minimal för en labbmiljö
+      Command:
+        Name: glueetl # Anger att vi kör Spark under huven
+        ScriptLocation: !Sub 's3://${LandingZoneBucket.BucketName}/scripts/etl_process.py'
+        PythonVersion: '3'
+      DefaultArguments:
+        '--job-language': 'python'
+        '--enable-metrics': 'true'
+        '--enable-continuous-cloudwatch-log': 'true' # Viktigt för övervakning!
+        '--extra-py-files': ''
+        '--LANDING_ZONE_BUCKET': !Ref LandingZoneBucket
+        '--ANALYTICS_ZONE_BUCKET': !Ref AnalyticsZoneBucket
+      Timeout: 10 # Avbryter jobbet automatiskt efter 10 minuter om koden hänger sig (FinOps-säkert)
+
+Outputs:
+  LandingZoneBucketName:
+    Value: !Ref LandingZoneBucket
+    Description: 'Name of the S3 Landing Zone Bucket'
+
+  AnalyticsZoneBucketName:
+    Value: !Ref AnalyticsZoneBucket
+    Description: 'Name of the S3 Analytics Zone Bucket'

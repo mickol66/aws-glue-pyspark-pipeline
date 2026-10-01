@@ -1,0 +1,50 @@
+name: Deploy AWS Glue Data Pipeline
+
+on:
+  push:
+    branches:
+      - mickol66  # 💡 Anpassad för din unika branch-struktur
+
+# 🔑 Krävs för att OIDC ska kunna begära tillfälliga AWS-tokens
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Hämta källkoden från ditt GitHub-repository
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # 2. Logga in på AWS med säker OIDC (OpenID Connect)
+    - name: Configure AWS Credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # 🛡️ ARN till din IAM GitHub-OIDC-roll
+        audience: ://amazonaws.com
+        aws-region: eu-north-1  # 🌍 Stockholm-regionen
+
+    # 3. Driftsätt eller uppdatera CloudFormation Stacken
+    - name: Deploy CloudFormation Stack
+      id: cfn-deploy
+      uses: aws-actions/aws-cloudformation-github-deploy@v1
+      with:
+        name: chinook-data-pipeline-stack
+        template: template.yaml
+        no-fail-on-empty-changeset: "true"
+        capabilities: CAPABILITY_NAMED_IAM
+
+    # 4. Hämta det genererade bucket-namnet dynamiskt från CloudFormation-outputs
+    - name: Get Landing Zone Bucket Name
+      id: get-bucket
+      run: |
+        BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name chinook-data-pipeline-stack --query "Stacks.Outputs[?OutputKey=='LandingZoneBucketName'].OutputValue" --output text)
+        echo "LANDING_BUCKET=$BUCKET_NAME" >> $GITHUB_ENV
+
+    # 5. Ladda upp PySpark-skriptet till din Landing Zone S3-bucket
+    - name: Upload PySpark Script to S3
+      run: |
+        aws s3 cp src/etl_process.py s3://${{ env.LANDING_BUCKET }}/scripts/etl_process.py
