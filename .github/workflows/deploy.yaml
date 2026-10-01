@@ -3,7 +3,7 @@ name: Deploy AWS Glue Data Pipeline
 on:
   push:
     branches:
-      - mickol66  # 💡 Anpassad för din unika branch-struktur
+      - main  # 💡 Anpassad för din unika branch-struktur
 
 # 🔑 Krävs för att OIDC ska kunna begära tillfälliga AWS-tokens
 permissions:
