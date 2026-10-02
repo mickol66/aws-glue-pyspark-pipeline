@@ -34,7 +34,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # 🔑 3. IAM-roll för AWS Glue (Ger Glue rättighet att läsa/skriva i dina buckets samt logga)
+  # 🔑 3. IAM-roll för AWS Glue
   GlueServiceRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -45,7 +45,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - ://amazonaws.com
+                - glue.amazonaws.com # 🛡️ Korrigerad tjänsteadress
             Action:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
@@ -55,7 +55,6 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              # Tillåt Glue att läsa från Landing Zone och skriptmappar
               - Effect: Allow
                 Action:
                   - 's3:GetObject'
@@ -63,7 +62,6 @@ Resources:
                 Resource:
                   - !GetAtt LandingZoneBucket.Arn
                   - !Sub '${LandingZoneBucket.Arn}/*'
-              # Tillåt Glue att skriva (och läsa) i Analytics Zone
               - Effect: Allow
                 Action:
                   - 's3:GetObject'
@@ -81,21 +79,21 @@ Resources:
       Name: !Sub '${ProjectName}-etl-job'
       Role: !GetAtt GlueServiceRole.Arn
       Description: 'ETL job that processes raw JSON data from landing zone to optimized Parquet in analytics zone.'
-      GlueVersion: '4.0' # Senaste stabila miljön med stöd för Python 3.10 / Spark 3.3
+      GlueVersion: '4.0'
       WorkerType: G.1X
-      NumberOfWorkers: 2 # Håller kostnaden minimal för en labbmiljö
+      NumberOfWorkers: 2
       Command:
-        Name: glueetl # Anger att vi kör Spark under huven
+        Name: glueetl
         ScriptLocation: !Sub 's3://${LandingZoneBucket.BucketName}/scripts/etl_process.py'
         PythonVersion: '3'
       DefaultArguments:
         '--job-language': 'python'
         '--enable-metrics': 'true'
-        '--enable-continuous-cloudwatch-log': 'true' # Viktigt för övervakning!
+        '--enable-continuous-cloudwatch-log': 'true'
         '--extra-py-files': ''
         '--LANDING_ZONE_BUCKET': !Ref LandingZoneBucket
         '--ANALYTICS_ZONE_BUCKET': !Ref AnalyticsZoneBucket
-      Timeout: 10 # Avbryter jobbet automatiskt efter 10 minuter om koden hänger sig (FinOps-säkert)
+      Timeout: 10
 
 Outputs:
   LandingZoneBucketName:
