@@ -8,7 +8,7 @@ Parameters:
     Description: 'A unique prefix used for naming the project resources.'
 
 Resources:
-  # 📥 1. S3 Landing Zone (Rådata i JSON/CSV format)
+  # 📥 1. S3 Landing Zone
   LandingZoneBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -21,7 +21,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # 📊 2. S3 Analytics Zone (Transformerad och optimerad data i Parquet format)
+  # 📊 2. S3 Analytics Zone
   AnalyticsZoneBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
@@ -45,7 +45,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - glue.amazonaws.com # 🛡️ Korrigerad tjänsteadress
+                - ://amazonaws.com
             Action:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
@@ -91,8 +91,9 @@ Resources:
         '--enable-metrics': 'true'
         '--enable-continuous-cloudwatch-log': 'true'
         '--extra-py-files': ''
-        '--LANDING_ZONE_BUCKET': !GetAtt LandingZoneBucket.Arn
-        '--ANALYTICS_ZONE_BUCKET': !GetAtt AnalyticsZoneBucket.Arn
+        # 🛡️ SÄKER FIX: !Ref på en S3-bucket returnerar dess exakta namn som en ren textsträng
+        '--LANDING_ZONE_BUCKET': !Ref LandingZoneBucket
+        '--ANALYTICS_ZONE_BUCKET': !Ref AnalyticsZoneBucket
       Timeout: 10
 
 Outputs:
