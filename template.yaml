@@ -34,7 +34,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # 🔑 3. IAM-roll för AWS Glue (Här tillåter vi explicit AWS Glue-tjänsten att köra)
+  # 🔑 3. IAM-roll för AWS Glue
   GlueServiceRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -45,7 +45,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - ://amazonaws.com # 🛡️ SÄKER FIX: Borttaget "://" och satt till korrekt AWS-tjänst
+                - glue.amazonaws.com
             Action:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
