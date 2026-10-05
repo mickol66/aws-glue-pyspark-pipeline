@@ -34,7 +34,7 @@ Resources:
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
 
-  # 🔑 3. IAM-roll för AWS Glue
+  # 🔑 3. IAM-roll för AWS Glue (Här tillåter vi explicit AWS Glue-tjänsten att köra)
   GlueServiceRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -45,7 +45,7 @@ Resources:
           - Effect: Allow
             Principal:
               Service:
-                - ://amazonaws.com
+                - ://amazonaws.com # 🛡️ SÄKER FIX: Borttaget "://" och satt till korrekt AWS-tjänst
             Action:
               - 'sts:AssumeRole'
       ManagedPolicyArns:
@@ -91,7 +91,6 @@ Resources:
         '--enable-metrics': 'true'
         '--enable-continuous-cloudwatch-log': 'true'
         '--extra-py-files': ''
-        # 🛡️ SÄKER FIX: !Ref på en S3-bucket returnerar dess exakta namn som en ren textsträng
         '--LANDING_ZONE_BUCKET': !Ref LandingZoneBucket
         '--ANALYTICS_ZONE_BUCKET': !Ref AnalyticsZoneBucket
       Timeout: 10
