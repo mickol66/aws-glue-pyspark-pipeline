@@ -84,7 +84,8 @@ Resources:
       NumberOfWorkers: 2
       Command:
         Name: glueetl
-        ScriptLocation: !Sub 's3://${LandingZoneBucket.BucketName}/scripts/etl_process.py'
+        # 🛡️ FIX: Ändrat från ${LandingZoneBucket.BucketName} till ${LandingZoneBucket}
+        ScriptLocation: !Sub 's3://${LandingZoneBucket}/scripts/etl_process.py'
         PythonVersion: '3'
       DefaultArguments:
         '--job-language': 'python'
